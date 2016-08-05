@@ -3,6 +3,7 @@
  */
 var male = 0;
 var female = 0;
+var breedCount = [];
 
 $(document).ready(function() {
   google.charts.load('current', {'packages':['corechart']});
@@ -10,34 +11,50 @@ $(document).ready(function() {
 });
 
 function loadData() {
-  //get male vs female
-  $.get('http://localhost:3000/api/cats/count?where[gender]=Male').then(function(result) {
-    male = result.count;
-    $.get('http://localhost:3000/api/cats/count?where[gender]=Female').then(function(result) {
-      female = result.count;
-      drawChart();
+  $.get('http://localhost:3000/api/cats/breeds').then(function(result) {
+    console.log('Breeds',result);
+    breeds = result;
+    var defs = [];
+    breeds.forEach(function(b) {
+      defs.push($.get('http://localhost:3000/api/cats/count?where[breed]='+b));
     });
+
+    $.when.apply($, defs).then(function() {
+      for(var i=0;i<breeds.length;i++) {
+        var count = arguments[i][0].count;
+        breedCount[breeds[i]] = count;
+      }
+      console.log(breedCount);
+      drawBreedChart();
+    });
+
   });
 }
 
-function drawChart() {
+function drawBreedChart() {
+
+  console.log('drawBreedChart');
+
   // Create the data table.
   var data = new google.visualization.DataTable();
-  data.addColumn('string', 'Gender');
+  data.addColumn('string', 'Breed');
   data.addColumn('number', 'Count');
-  data.addRows([
-    ['Male', male],
-    ['Female', female]
-  ]);
+
+  //convert our nice ob into an array
+  var bData = [];
+  breeds.forEach(function(b) {
+    bData.push([b, breedCount[b]]);
+  });
+  data.addRows(bData);
 
   // Set chart options
   var options = {
-    'title':'Cats by Gender',
-    'width':400,
-    'height':400
+    'title':'Cats by Breed',
+    'width':500,
+    'height':500
   };
 
-  // Instantiate and draw chart, passing in some options.
-  var chart = new google.visualization.PieChart(document.getElementById('chart_div'));
+  var chart = new google.visualization.PieChart(document.getElementById('breed_div'));
   chart.draw(data, options);
+
 }
